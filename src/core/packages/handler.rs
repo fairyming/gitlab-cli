@@ -11,28 +11,34 @@ pub fn run(gitlab: &GitLabClient, action: PackageAction) -> anyhow::Result<()> {
 
             println!("Uploading '{}' version '{}' from '{}'...", name, version, file.display());
 
-            api::upload_package(&gitlab.client, &gitlab.api_url, &project, &name, &version, file_name, &file)?;
+            api::upload_package(gitlab, &project, &name, &version, file_name, &file)?;
         }
 
         PackageAction::Download { project, name, version, file, output } => {
             println!("Downloading '{}' version '{}' ({})...", name, version, file);
 
-            api::download_package(&gitlab.client, &gitlab.api_url, &project, &name, &version, &file, &output)?;
+            api::download_package(gitlab, &project, &name, &version, &file, &output)?;
         }
 
         PackageAction::Delete { project, id } => {
             println!("Deleting package {}...", id);
-            api::delete_package(&gitlab.client, &gitlab.api_url, &project, id)?;
+            api::delete_package(gitlab, &project, id)?;
         }
 
         PackageAction::List { project, name } => {
-            let packages = api::list_packages(&gitlab.client, &gitlab.api_url, &project, name.as_deref())?;
+            let packages = api::list_packages(gitlab, &project, name.as_deref())?;
 
             if packages.is_empty() {
                 println!("No packages found.");
             } else {
                 for pkg in &packages {
                     println!("{:<8} {:<40} {:<20} {}", pkg.id, pkg.name, pkg.version, pkg.package_type);
+
+                    let files = api::list_package_files(gitlab, &project, pkg.id)?;
+                    for f in &files {
+                        let size_mb = f.size as f64 / 1024.0 / 1024.0;
+                        println!("  {:<40} {:>10.2} MB   {}", f.file_name, size_mb, &f.created_at[..19]);
+                    }
                 }
             }
         }

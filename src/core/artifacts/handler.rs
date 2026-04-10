@@ -13,15 +13,15 @@ fn download_by_branch(
     output: &Path,
 ) -> anyhow::Result<()> {
     println!("Looking for pipeline by ref '{}'...", branch);
-    let pipeline = api::get_pipeline_by_ref(&gitlab.client, &gitlab.api_url, project, branch)?;
+    let pipeline = api::get_pipeline_by_ref(gitlab, project, branch)?;
     println!("Found pipeline: {}", pipeline.id);
 
     println!("Searching for job '{}'...", job_name);
-    let job = api::find_job(&gitlab.client, &gitlab.api_url, project, pipeline.id, job_name)?;
+    let job = api::find_job(gitlab, project, pipeline.id, job_name)?;
     println!("Found job: {} (id={})", job.name, job.id);
 
     println!("Downloading artifacts...");
-    api::download_artifacts(&gitlab.client, &gitlab.api_url, project, job.id, output)?;
+    api::download_artifacts(gitlab, project, job.id, output)?;
 
     Ok(())
 }
@@ -34,15 +34,15 @@ fn download_by_commit(
     output: &Path,
 ) -> anyhow::Result<()> {
     println!("Looking for pipeline by commit '{}'...", sha);
-    let pipeline = api::get_pipeline_by_sha(&gitlab.client, &gitlab.api_url, project, sha)?;
+    let pipeline = api::get_pipeline_by_sha(gitlab, project, sha)?;
     println!("Found pipeline: {}", pipeline.id);
 
     println!("Searching for job '{}'...", job_name);
-    let job = api::find_job(&gitlab.client, &gitlab.api_url, project, pipeline.id, job_name)?;
+    let job = api::find_job(gitlab, project, pipeline.id, job_name)?;
     println!("Found job: {} (id={})", job.name, job.id);
 
     println!("Downloading artifacts...");
-    api::download_artifacts(&gitlab.client, &gitlab.api_url, project, job.id, output)?;
+    api::download_artifacts(gitlab, project, job.id, output)?;
 
     Ok(())
 }

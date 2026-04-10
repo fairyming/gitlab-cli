@@ -1,10 +1,8 @@
-use reqwest::blocking::Client;
-
-use super::types::{encode_project, Package};
+use super::types::{encode_project, Package, PackageFile};
+use crate::client::GitLabClient;
 
 pub fn upload_package(
-    client: &Client,
-    api_url: &str,
+    gitlab: &GitLabClient,
     project: &str,
     package_name: &str,
     package_version: &str,
@@ -13,7 +11,7 @@ pub fn upload_package(
 ) -> anyhow::Result<()> {
     let url = format!(
         "{}/projects/{}/packages/generic/{}/{}/{}",
-        api_url,
+        gitlab.api_url,
         encode_project(project),
         urlencoding::encode(package_name),
         urlencoding::encode(package_version),
@@ -22,50 +20,7 @@ pub fn upload_package(
 
     let file_bytes = std::fs::read(file_path)?;
 
-    let result = client.put(&url).body(file_bytes).send();
-    let response = match result {
-        Ok(resp) => resp,
-        Err(e) => return Err(e.into()),
-    };
-
-    if response.status().is_success() {
-        println!("Package '{}' version '{}' uploaded successfully", package_name, package_version);
-        return Ok(());
-    }
-
-    if response.status() == reqwest::StatusCode::CONFLICT {
-        println!("Package already exists, updating...");
-        return upload_package_force(client, api_url, project, package_name, package_version, file_name, file_path);
-    }
-
-    super::check_response(response, &url)?;
-    unreachable!()
-}
-
-fn upload_package_force(
-    client: &Client,
-    api_url: &str,
-    project: &str,
-    package_name: &str,
-    package_version: &str,
-    file_name: &str,
-    file_path: &std::path::Path,
-) -> anyhow::Result<()> {
-    let url = format!(
-        "{}/projects/{}/packages/generic/{}/{}/{}",
-        api_url,
-        encode_project(project),
-        urlencoding::encode(package_name),
-        urlencoding::encode(package_version),
-        urlencoding::encode(file_name),
-    );
-
-    let file_bytes = std::fs::read(file_path)?;
-
-    client.delete(&url).send()?;
-
-    let response = client.put(&url).body(file_bytes).send()?;
-    super::check_response(response, &url)?;
+    gitlab.put(&url, file_bytes)?;
 
     println!("Package '{}' version '{}' uploaded successfully", package_name, package_version);
 
@@ -73,8 +28,7 @@ fn upload_package_force(
 }
 
 pub fn download_package(
-    client: &Client,
-    api_url: &str,
+    gitlab: &GitLabClient,
     project: &str,
     package_name: &str,
     package_version: &str,
@@ -83,17 +37,14 @@ pub fn download_package(
 ) -> anyhow::Result<()> {
     let url = format!(
         "{}/projects/{}/packages/generic/{}/{}/{}",
-        api_url,
+        gitlab.api_url,
         encode_project(project),
         urlencoding::encode(package_name),
         urlencoding::encode(package_version),
         urlencoding::encode(file_name),
     );
 
-    let response = client.get(&url).send()?;
-    let response = super::check_response(response, &url)?;
-
-    let bytes = response.bytes()?;
+    let bytes = gitlab.get(&url)?;
 
     if let Some(parent) = output.parent() {
         std::fs::create_dir_all(parent)?;
@@ -105,34 +56,33 @@ pub fn download_package(
     Ok(())
 }
 
-pub fn list_packages(
-    client: &Client,
-    api_url: &str,
-    project: &str,
-    package_name: Option<&str>,
-) -> anyhow::Result<Vec<Package>> {
-    let mut url =
-        format!("{}/projects/{}/packages?per_page=100&order_by=version&sort=desc", api_url, encode_project(project),);
+pub fn list_packages(gitlab: &GitLabClient, project: &str, package_name: Option<&str>) -> anyhow::Result<Vec<Package>> {
+    let mut url = format!(
+        "{}/projects/{}/packages?per_page=100&order_by=version&sort=desc",
+        gitlab.api_url,
+        encode_project(project),
+    );
 
     if let Some(name) = package_name {
         url.push_str(&format!("&package_name={}", urlencoding::encode(name)));
     }
 
-    let response = client.get(&url).send()?;
-    let response = super::check_response(response, &url)?;
-
-    let packages: Vec<Package> = response.json()?;
-
+    let body = gitlab.get(&url)?;
+    let packages: Vec<Package> = serde_json::from_slice(&body)?;
     Ok(packages)
 }
 
-pub fn delete_package(client: &Client, api_url: &str, project: &str, package_id: u64) -> anyhow::Result<()> {
-    let url = format!("{}/projects/{}/packages/{}", api_url, encode_project(project), package_id);
-
-    let response = client.delete(&url).send()?;
-    super::check_response(response, &url)?;
-
+pub fn delete_package(gitlab: &GitLabClient, project: &str, package_id: u64) -> anyhow::Result<()> {
+    let url = format!("{}/projects/{}/packages/{}", gitlab.api_url, encode_project(project), package_id);
+    gitlab.delete(&url)?;
     println!("Package {} deleted successfully", package_id);
-
     Ok(())
+}
+
+pub fn list_package_files(gitlab: &GitLabClient, project: &str, package_id: u64) -> anyhow::Result<Vec<PackageFile>> {
+    let url = format!("{}/projects/{}/packages/{}/package_files", gitlab.api_url, encode_project(project), package_id,);
+
+    let body = gitlab.get(&url)?;
+    let files: Vec<PackageFile> = serde_json::from_slice(&body)?;
+    Ok(files)
 }

@@ -18,11 +18,11 @@ cp target/release/gitlab-cli /usr/local/bin/
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|---|---|---|
-| `GITLAB_API_URL` | GitLab API base URL (e.g. `https://gitlab.com/api/v4`) | Yes |
-| `GITLAB_PRIVATE_TOKEN` | Personal access token | One of the two |
-| `CI_JOB_TOKEN` | CI job token (for use in pipelines) | |
+| Variable | Description |
+|---|---|
+| `CI_API_V4_URL` | GitLab API base URL (e.g. `https://gitlab.com/api/v4`) |
+| `GITLAB_PRIVATE_TOKEN` | Personal access token |
+| `CI_JOB_TOKEN` | CI job token |
 
 ### CLI Options
 
@@ -30,22 +30,33 @@ CLI options take priority over environment variables.
 
 | Flag | Description | Env Fallback |
 |---|---|---|
-| `--api-url` | GitLab API base URL | `GITLAB_API_URL` |
-| `--token` | Access token (uses `PRIVATE-TOKEN` header) | `GITLAB_PRIVATE_TOKEN` |
+| `--api-url` | GitLab API base URL | `CI_API_V4_URL` |
+| `--use-private-token` | Switch to `PRIVATE-TOKEN` auth mode | - |
+| `--private-token` | Personal access token (requires `--use-private-token`) | `GITLAB_PRIVATE_TOKEN` |
+| `--job-token` | CI job token (default mode) | `CI_JOB_TOKEN` |
 | `--insecure` | Skip TLS certificate verification | - |
+| `--log-level` | HTTP tracing log level (trace/debug/info/warn/error) | `warn` |
 
-## Usage
+### Auth Mode
 
-### Quick Start
+By default, the CLI uses `CI_JOB_TOKEN` (header: `JOB-TOKEN`) for authentication.
+
+Add `--use-private-token` to switch to `GITLAB_PRIVATE_TOKEN` (header: `PRIVATE-TOKEN`) mode.
 
 ```bash
-# 1. Set environment variables
-export GITLAB_API_URL=https://gitlab.example.com/api/v4
-export GITLAB_PRIVATE_TOKEN=glpat-xxxxxxxxxxxx
-
-# 2. Run commands directly
+# Default: uses CI_JOB_TOKEN (from env or --job-token)
 gitlab-cli artifacts download --project my-group/my-project --branch main --job build
+
+# Explicit: uses GITLAB_PRIVATE_TOKEN (from env or --private-token)
+gitlab-cli --use-private-token artifacts download --project my-group/my-project --branch main --job build
+
+# Override token via CLI
+gitlab-cli --use-private-token --private-token glpat-xxxx \
+  --api-url https://gitlab.example.com/api/v4 \
+  artifacts download --project my-group/my-project --branch main --job build
 ```
+
+## Usage
 
 ### Artifacts
 
@@ -83,16 +94,6 @@ gitlab-cli artifacts download \
 gitlab-cli artifacts download \
   --project my-group/my-project \
   --commit abc123def456 \
-  --job build
-
-# Override API config via CLI
-gitlab-cli \
-  --api-url https://gitlab.example.com/api/v4 \
-  --token glpat-xxxxxxxxxxxx \
-  --insecure \
-  artifacts download \
-  --project my-group/my-project \
-  --branch main \
   --job build
 ```
 
