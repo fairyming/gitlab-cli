@@ -5,6 +5,7 @@ mod core;
 use core::{
     artifacts::{run as artifacts_run, ArtifactsAction},
     packages::{run as packages_run, PackageAction},
+    pipeline::{run as pipeline_run, PipelineAction},
 };
 
 use anyhow::Context;
@@ -63,6 +64,12 @@ enum Commands {
         #[command(subcommand)]
         action: PackageAction,
     },
+
+    /// Manage CI/CD pipelines
+    Pipeline {
+        #[command(subcommand)]
+        action: PipelineAction,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -82,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         .with_target(false)
         .init();
 
-    let api_url = cli.client.api_url.context("--api-url or GITLAB_API_URL is required")?;
+    let api_url = cli.client.api_url.context("--api-url or CI_API_V4_URL is required")?;
     let gitlab = GitLabClient::new(
         api_url,
         cli.client.use_private_token,
@@ -94,6 +101,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Artifacts { action } => artifacts_run(&gitlab, action)?,
         Commands::Package { action } => packages_run(&gitlab, action)?,
+        Commands::Pipeline { action } => pipeline_run(&gitlab, action)?,
     }
 
     Ok(())

@@ -1,4 +1,5 @@
 use anyhow::Context;
+use tracing::debug;
 
 use super::check::{log_request, read_response};
 
@@ -69,5 +70,29 @@ impl GitLabClient {
         log_request("DELETE", url);
         let response = self.client.delete(url).send()?;
         read_response(response, url)
+    }
+
+    /// POST request (no body): log + send + status check + read body.
+    pub fn post(&self, url: &str) -> anyhow::Result<Vec<u8>> {
+        log_request("POST", url);
+        let response = self.client.post(url).send()?;
+        read_response(response, url)
+    }
+
+    /// POST request with JSON body: log + send + status check + read body.
+    pub fn post_json(&self, url: &str, body: &impl serde::Serialize) -> anyhow::Result<Vec<u8>> {
+        log_request("POST", url);
+        debug!("POST JSON body: {:?}", serde_json::to_string(body)?);
+        let response = self.client.post(url).json(body).send()?;
+        read_response(response, url)
+    }
+
+    /// GraphQL request: POST JSON body to /api/graphql.
+    pub fn graphql(&self, body: &impl serde::Serialize) -> anyhow::Result<Vec<u8>> {
+        let url = format!("{}/../graphql", self.api_url);
+        debug!("GraphQL request body: {:?}", serde_json::to_string(body)?);
+        log_request("POST", &url);
+        let response = self.client.post(&url).json(body).send()?;
+        read_response(response, &url)
     }
 }

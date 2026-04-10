@@ -5,6 +5,7 @@ A CLI tool for interacting with GitLab API, written in Rust.
 ## Features
 
 - **Artifacts** — Download CI/CD pipeline artifacts by branch or commit
+- **Pipeline** — Trigger a specific job in a pipeline by branch or commit, with custom environment variables
 - **Package Registry** — Upload, download, list, and delete generic packages
 
 ## Installation
@@ -92,6 +93,51 @@ gitlab-cli artifacts download \
 
 # Download by commit
 gitlab-cli artifacts download \
+  --project my-group/my-project \
+  --commit abc123def456 \
+  --job build
+```
+
+### Pipeline
+
+Trigger a specific job in a pipeline by branch or commit. Supports passing custom environment variables.
+
+**Required arguments:**
+
+| Argument | Description |
+|---|---|
+| `--project` | Project ID or path (e.g. `my-group/my-project`) |
+| `--job` | Job name to trigger |
+
+**Specify pipeline by ref (choose one):**
+
+| Argument | Description |
+|---|---|
+| `--branch` | Branch name to find the latest pipeline |
+| `--commit` | Commit SHA to find the latest pipeline |
+
+**Optional arguments:**
+
+| Argument | Description |
+|---|---|
+| `--env KEY=VALUE` | Environment variables (can be specified multiple times) |
+
+The tool will find the job in the pipeline and:
+- **Manual job** → play the job
+- **Failed/canceled/skipped/success job** → retry the job
+- **Running/pending job** → exit with error
+
+```bash
+# Trigger a job by branch
+gitlab-cli --use-private-token pipeline run \
+  --project my-group/my-project \
+  --branch main \
+  --job deploy \
+  --env FOO=bar \
+  --env BAZ=qux
+
+# Trigger a job by commit
+gitlab-cli --use-private-token pipeline run \
   --project my-group/my-project \
   --commit abc123def456 \
   --job build

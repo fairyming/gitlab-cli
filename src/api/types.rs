@@ -6,9 +6,26 @@ pub struct Pipeline {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Job {
+pub struct JobDetail {
     pub id: u64,
     pub name: String,
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TriggeredJob {
+    pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GraphQlResponse<T> {
+    pub data: Option<T>,
+    pub errors: Option<Vec<GraphQlError>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GraphQlError {
+    pub message: String,
 }
 
 #[derive(Debug, Deserialize)]
