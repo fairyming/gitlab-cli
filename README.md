@@ -81,8 +81,8 @@ Download artifacts from a specific job in the latest pipeline of a branch or com
 
 | Argument | Description | Default |
 |---|---|---|
-| `--output` | Output file path for the zip archive | `artifacts.zip` |
-| `--extract` | Extract the zip archive after downloading (zip file will be removed) | `false` |
+| `--output` | Output file path for the zip archive, or output directory when `--extract` is used | `artifacts.zip` / `.` (with `--extract`) |
+| `--extract` | Extract the zip archive after downloading; `--output` becomes the destination directory | `false` |
 
 ```bash
 # Download by branch
@@ -92,12 +92,19 @@ gitlab-cli artifacts download \
   --job build \
   --output artifacts.zip
 
-# Download by branch and extract
+# Download by branch and extract to current directory
 gitlab-cli artifacts download \
   --project my-group/my-project \
   --branch main \
   --job build \
-  --output artifacts.zip \
+  --extract
+
+# Download by branch and extract to a specific directory
+gitlab-cli artifacts download \
+  --project my-group/my-project \
+  --branch main \
+  --job build \
+  --output ./dist \
   --extract
 
 # Download by commit

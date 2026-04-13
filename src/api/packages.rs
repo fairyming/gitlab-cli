@@ -44,13 +44,7 @@ pub fn download_package(
         urlencoding::encode(file_name),
     );
 
-    let bytes = gitlab.get(&url)?;
-
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    std::fs::write(output, &bytes)?;
+    gitlab.download(&url, output)?;
     println!("Package '{}' version '{}' downloaded to {}", package_name, package_version, output.display());
 
     Ok(())

@@ -58,6 +58,40 @@ impl GitLabClient {
         read_response(response, url)
     }
 
+    /// Stream download: send GET request, check status, then stream response body to file.
+    pub fn download(&self, url: &str, path: &std::path::Path) -> anyhow::Result<()> {
+        use std::io::{Read, Write};
+
+        log_request("GET", url);
+        let mut response = self.client.get(url).send()?;
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().unwrap_or_else(|_| "<failed to read response body>".to_string());
+            let truncated = &body[..body.len().min(1024)];
+            debug!("response body: {}", truncated);
+            anyhow::bail!("API request failed\n  URL: {url}\n  Status: {status}\n  Response: {truncated}")
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut file = std::fs::File::create(path)?;
+        let mut buf = [0u8; 8 * 1024];
+        let mut first = true;
+        loop {
+            let n = response.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            if first {
+                debug!("response body: {}", String::from_utf8_lossy(&buf[..n.min(1024)]));
+                first = false;
+            }
+            file.write_all(&buf[..n])?;
+        }
+        Ok(())
+    }
+
     /// PUT request: log + send + status check + read body.
     pub fn put(&self, url: &str, body: Vec<u8>) -> anyhow::Result<Vec<u8>> {
         log_request("PUT", url);

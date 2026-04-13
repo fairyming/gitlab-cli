@@ -22,9 +22,9 @@ pub enum ArtifactsAction {
         #[arg(long)]
         job: String,
 
-        /// Output file path for the zip archive
-        #[arg(long, default_value = "artifacts.zip")]
-        output: PathBuf,
+        /// Output file path for the zip archive, or output directory when --extract is used
+        #[arg(long)]
+        output: Option<PathBuf>,
 
         /// Extract the zip archive after downloading
         #[arg(long)]

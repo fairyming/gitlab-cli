@@ -10,20 +10,16 @@ pub fn download_artifacts(
 ) -> anyhow::Result<()> {
     let url = format!("{}/projects/{}/jobs/{}/artifacts", gitlab.api_url, encode_project(project), job_id);
 
-    let bytes = gitlab.get(&url)?;
-
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    std::fs::write(output, &bytes)?;
-    println!("Artifacts saved to {}", output.display());
-
     if extract {
-        extract_zip(output, output.parent().unwrap_or(output))?;
-        // Remove the zip file after extraction
-        std::fs::remove_file(output)?;
-        println!("Zip archive removed after extraction.");
+        std::fs::create_dir_all(output)?;
+        let tmp_zip = output.join("_artifacts_tmp.zip");
+        gitlab.download(&url, &tmp_zip)?;
+        println!("Artifacts saved to {}", tmp_zip.display());
+        extract_zip(&tmp_zip, output)?;
+        std::fs::remove_file(&tmp_zip)?;
+    } else {
+        gitlab.download(&url, output)?;
+        println!("Artifacts saved to {}", output.display());
     }
 
     Ok(())

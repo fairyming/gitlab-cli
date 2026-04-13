@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::bail;
 
@@ -52,6 +52,8 @@ fn download_by_commit(
 pub fn run(gitlab: &GitLabClient, action: ArtifactsAction) -> anyhow::Result<()> {
     match action {
         ArtifactsAction::Download { project, branch, commit, job, output, extract } => {
+            let output =
+                output.unwrap_or_else(|| if extract { PathBuf::from(".") } else { PathBuf::from("artifacts.zip") });
             match (branch.as_deref(), commit.as_deref()) {
                 (Some(b), None) => download_by_branch(gitlab, &project, b, &job, &output, extract),
                 (None, Some(c)) => download_by_commit(gitlab, &project, c, &job, &output, extract),
