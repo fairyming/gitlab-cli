@@ -25,5 +25,9 @@ pub enum ArtifactsAction {
         /// Output file path for the zip archive
         #[arg(long, default_value = "artifacts.zip")]
         output: PathBuf,
+
+        /// Extract the zip archive after downloading
+        #[arg(long)]
+        extract: bool,
     },
 }

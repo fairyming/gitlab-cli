@@ -11,6 +11,7 @@ fn download_by_branch(
     branch: &str,
     job_name: &str,
     output: &Path,
+    extract: bool,
 ) -> anyhow::Result<()> {
     println!("Looking for pipeline by ref '{}'...", branch);
     let pipeline = api::get_pipeline_by_ref(gitlab, project, branch)?;
@@ -21,7 +22,7 @@ fn download_by_branch(
     println!("Found job: {} (id={})", job.name, job.id);
 
     println!("Downloading artifacts...");
-    api::download_artifacts(gitlab, project, job.id, output)?;
+    api::download_artifacts(gitlab, project, job.id, output, extract)?;
 
     Ok(())
 }
@@ -32,6 +33,7 @@ fn download_by_commit(
     sha: &str,
     job_name: &str,
     output: &Path,
+    extract: bool,
 ) -> anyhow::Result<()> {
     println!("Looking for pipeline by commit '{}'...", sha);
     let pipeline = api::get_pipeline_by_sha(gitlab, project, sha)?;
@@ -42,17 +44,17 @@ fn download_by_commit(
     println!("Found job: {} (id={})", job.name, job.id);
 
     println!("Downloading artifacts...");
-    api::download_artifacts(gitlab, project, job.id, output)?;
+    api::download_artifacts(gitlab, project, job.id, output, extract)?;
 
     Ok(())
 }
 
 pub fn run(gitlab: &GitLabClient, action: ArtifactsAction) -> anyhow::Result<()> {
     match action {
-        ArtifactsAction::Download { project, branch, commit, job, output } => {
+        ArtifactsAction::Download { project, branch, commit, job, output, extract } => {
             match (branch.as_deref(), commit.as_deref()) {
-                (Some(b), None) => download_by_branch(gitlab, &project, b, &job, &output),
-                (None, Some(c)) => download_by_commit(gitlab, &project, c, &job, &output),
+                (Some(b), None) => download_by_branch(gitlab, &project, b, &job, &output, extract),
+                (None, Some(c)) => download_by_commit(gitlab, &project, c, &job, &output, extract),
                 _ => bail!("Must specify exactly one of --branch or --commit"),
             }
         }
