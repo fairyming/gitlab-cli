@@ -42,7 +42,7 @@ struct ClientArgs {
 }
 
 #[derive(Parser)]
-#[command(name = "gitlab-cli", version, about = "GitLab CLI tool")]
+#[command(name = "gitlab-cli", version = env!("GIT_VERSION"), about = "GitLab CLI tool")]
 struct Cli {
     #[command(flatten)]
     client: ClientArgs,
