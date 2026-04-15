@@ -22,6 +22,7 @@ fn trigger_job(
     is_branch: bool,
     job_name: &str,
     variables: &HashMap<String, String>,
+    inputs: &HashMap<String, String>,
 ) -> anyhow::Result<()> {
     let ref_label = if is_branch { "branch" } else { "commit" };
     println!("Looking for pipeline by {} '{}'...", ref_label, r#ref);
@@ -39,18 +40,19 @@ fn trigger_job(
 
     api::check_job_status(&job.status)?;
 
+    // 存在一点小问题，目前不支持 retry 时清空所有 inputs 或 variables
     let triggered = match job.status.as_str() {
         "manual" => {
             println!("Playing manual job...");
-            api::play_job(gitlab, project, job.id, variables)?
+            api::play_job(gitlab, project, job.id, variables, inputs)?
         }
         _ => {
             if !variables.is_empty() {
                 println!("Retrying job with custom variables via GraphQL...");
-                api::retry_job_with_variables(gitlab, job.id, variables)?
+                api::retry_job_with_variables(gitlab, job.id, variables, inputs)?
             } else {
                 println!("Retrying job...");
-                api::retry_job(gitlab, project, job.id)?
+                api::retry_job(gitlab, project, job.id, inputs)?
             }
         }
     };
@@ -61,11 +63,12 @@ fn trigger_job(
 
 pub fn run(gitlab: &GitLabClient, action: PipelineAction) -> anyhow::Result<()> {
     match action {
-        PipelineAction::Run { project, branch, commit, job, variables } => {
+        PipelineAction::Run { project, branch, commit, job, variables, inputs } => {
             let vars = parse_variables(&variables)?;
+            let inp = parse_variables(&inputs)?;
             match (branch.as_deref(), commit.as_deref()) {
-                (Some(b), None) => trigger_job(gitlab, &project, b, true, &job, &vars),
-                (None, Some(c)) => trigger_job(gitlab, &project, c, false, &job, &vars),
+                (Some(b), None) => trigger_job(gitlab, &project, b, true, &job, &vars, &inp),
+                (None, Some(c)) => trigger_job(gitlab, &project, c, false, &job, &vars, &inp),
                 _ => bail!("Must specify exactly one of --branch or --commit"),
             }
         }

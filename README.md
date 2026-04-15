@@ -5,7 +5,7 @@ A CLI tool for interacting with GitLab API, written in Rust.
 ## Features
 
 - **Artifacts** — Download CI/CD pipeline artifacts by branch or commit
-- **Pipeline** — Trigger a specific job in a pipeline by branch or commit, with custom environment variables
+- **Pipeline** — Trigger a specific job in a pipeline by branch or commit, with custom environment variables and job inputs
 - **Package Registry** — Upload, download, list, and delete generic packages
 
 ## Installation
@@ -116,7 +116,7 @@ gitlab-cli artifacts download \
 
 ### Pipeline
 
-Trigger a specific job in a pipeline by branch or commit. Supports passing custom environment variables.
+Trigger a specific job in a pipeline by branch or commit. Supports passing custom environment variables and job inputs.
 
 **Required arguments:**
 
@@ -137,6 +137,7 @@ Trigger a specific job in a pipeline by branch or commit. Supports passing custo
 | Argument | Description |
 |---|---|
 | `--env KEY=VALUE` | Environment variables (can be specified multiple times) |
+| `--input KEY=VALUE` | Job inputs for interactive/manual jobs (can be specified multiple times) |
 
 The tool will find the job in the pipeline and:
 - **Manual job** → play the job
@@ -144,7 +145,7 @@ The tool will find the job in the pipeline and:
 - **Running/pending job** → exit with error
 
 ```bash
-# Trigger a job by branch
+# Trigger a job by branch with variables
 gitlab-cli --use-private-token pipeline run \
   --project my-group/my-project \
   --branch main \
@@ -152,11 +153,20 @@ gitlab-cli --use-private-token pipeline run \
   --env FOO=bar \
   --env BAZ=qux
 
-# Trigger a job by commit
+# Trigger a job with job inputs
+gitlab-cli --use-private-token pipeline run \
+  --project my-group/my-project \
+  --branch main \
+  --job deploy \
+  --input environment=staging \
+  --input version=v2.1.0
+
+# Trigger a job by commit with both variables and inputs
 gitlab-cli --use-private-token pipeline run \
   --project my-group/my-project \
   --commit abc123def456 \
-  --job build
+  --job build \
+  --input filter=xml
 ```
 
 ### Package Registry

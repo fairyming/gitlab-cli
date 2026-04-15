@@ -23,5 +23,9 @@ pub enum PipelineAction {
         /// Environment variables (e.g. --env KEY=VALUE), can be specified multiple times
         #[arg(long = "env", value_name = "KEY=VALUE")]
         variables: Vec<String>,
+
+        /// Job inputs (e.g. --input KEY=VALUE), can be specified multiple times
+        #[arg(long = "input", value_name = "KEY=VALUE")]
+        inputs: Vec<String>,
     },
 }

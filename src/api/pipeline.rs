@@ -48,10 +48,11 @@ pub fn play_job(
     project: &str,
     job_id: u64,
     variables: &HashMap<String, String>,
+    inputs: &HashMap<String, String>,
 ) -> anyhow::Result<TriggeredJob> {
     let url = format!("{}/projects/{}/jobs/{}/play", gitlab.api_url, encode_project(project), job_id);
 
-    let body = build_play_body(variables);
+    let body = build_play_body(variables, inputs);
     let res = gitlab.post_json(&url, &body)?;
     let job: TriggeredJob = serde_json::from_slice(&res)?;
     Ok(job)
@@ -61,15 +62,18 @@ pub fn retry_job_with_variables(
     gitlab: &GitLabClient,
     job_id: u64,
     variables: &HashMap<String, String>,
+    inputs: &HashMap<String, String>,
 ) -> anyhow::Result<TriggeredJob> {
     let vars: Vec<GraphQlVariable> = variables.iter().map(|(k, v)| GraphQlVariable { key: k, value: v }).collect();
+    let inp: Vec<GraphQlInput> = inputs.iter().map(|(k, v)| GraphQlInput { name: k, value: v }).collect();
 
     let request = TriggerJobArgs {
         operation_name: "retryJobWithVariables",
-        query: "mutation retryJobWithVariables($id: CiProcessableID!, $variables: [CiVariableInput!]) {\n  jobRetry(input: {id: $id, variables: $variables}) {\n    job {\n      ...BaseCiJob\n      webPath\n      __typename\n    }\n    errors\n    __typename\n  }\n}\n\nfragment BaseCiJob on CiJob {\n  id\n  manualVariables {\n    nodes {\n      ...ManualCiVariable\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ManualCiVariable on CiVariable {\n  id\n  key\n  value\n  __typename\n}",
+        query: "mutation retryJobWithVariables($id: CiProcessableID!, $variables: [CiVariableInput!], $inputs: [CiInputsInput!]) {\n  jobRetry(input: {id: $id, variables: $variables, inputs: $inputs}) {\n    job {\n      ...BaseCiJob\n      webPath\n      __typename\n    }\n    errors\n    __typename\n  }\n}\n\nfragment BaseCiJob on CiJob {\n  id\n  manualVariables {\n    nodes {\n      ...ManualCiVariable\n      __typename\n    }\n    __typename\n  }\n  __typename\n}\n\nfragment ManualCiVariable on CiVariable {\n  id\n  key\n  value\n  __typename\n}",
         variables: TriggerJobVariables {
             id: format!("gid://gitlab/Ci::Build/{}", job_id),
             variables: vars,
+            inputs: inp,
         },
     };
 
@@ -86,11 +90,24 @@ pub fn retry_job_with_variables(
     Ok(TriggeredJob { id: new_job_id })
 }
 
-pub fn retry_job(gitlab: &GitLabClient, project: &str, job_id: u64) -> anyhow::Result<TriggeredJob> {
+pub fn retry_job(
+    gitlab: &GitLabClient,
+    project: &str,
+    job_id: u64,
+    inputs: &HashMap<String, String>,
+) -> anyhow::Result<TriggeredJob> {
     let url = format!("{}/projects/{}/jobs/{}/retry", gitlab.api_url, encode_project(project), job_id);
-    let body = gitlab.post(&url)?;
-    let job: TriggeredJob = serde_json::from_slice(&body)?;
-    Ok(job)
+    if inputs.is_empty() {
+        let body = gitlab.post(&url)?;
+        let job: TriggeredJob = serde_json::from_slice(&body)?;
+        Ok(job)
+    } else {
+        // 实际参数为 inputs: https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/api/ci/jobs.rb?ref_type=heads#L168
+        let body = RetryBody { inputs };
+        let res = gitlab.post_json(&url, &body)?;
+        let job: TriggeredJob = serde_json::from_slice(&res)?;
+        Ok(job)
+    }
 }
 
 // --- GraphQL request types ---
@@ -107,11 +124,19 @@ struct TriggerJobArgs<'a> {
 struct TriggerJobVariables<'a> {
     id: String,
     variables: Vec<GraphQlVariable<'a>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    inputs: Vec<GraphQlInput<'a>>,
 }
 
 #[derive(Serialize)]
 struct GraphQlVariable<'a> {
     key: &'a str,
+    value: &'a str,
+}
+
+#[derive(Serialize)]
+struct GraphQlInput<'a> {
+    name: &'a str,
     value: &'a str,
 }
 
@@ -144,6 +169,14 @@ fn parse_gid_id(gid: &str) -> anyhow::Result<u64> {
 struct PlayBody<'a> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     job_variables_attributes: Vec<PlayVariable<'a>>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    job_inputs: &'a HashMap<String, String>,
+}
+
+#[derive(Serialize)]
+struct RetryBody<'a> {
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    inputs: &'a HashMap<String, String>,
 }
 
 #[derive(Serialize)]
@@ -152,9 +185,9 @@ struct PlayVariable<'a> {
     value: &'a str,
 }
 
-fn build_play_body<'a>(variables: &'a HashMap<String, String>) -> PlayBody<'a> {
+fn build_play_body<'a>(variables: &'a HashMap<String, String>, inputs: &'a HashMap<String, String>) -> PlayBody<'a> {
     let attrs: Vec<PlayVariable<'a>> = variables.iter().map(|(k, v)| PlayVariable { key: k, value: v }).collect();
-    PlayBody { job_variables_attributes: attrs }
+    PlayBody { job_variables_attributes: attrs, job_inputs: inputs }
 }
 
 pub fn check_job_status(status: &str) -> anyhow::Result<()> {
